@@ -1,0 +1,163 @@
+# IndexerAPI Docker Compose
+# Development and production configurations
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # API Server
+  # ==========================================================================
+  api:
+    build:
+      context: .
+      target: production
+    container_name: indexer-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://indexer:indexer_secret@postgres:5432/indexer_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+    volumes:
+      - indexer_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - indexer-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # Celery Worker
+  # ==========================================================================
+  worker:
+    build:
+      context: .
+      target: production
+    container_name: indexer-worker
+    command: celery -A indexer_api.workers.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://indexer:indexer_secret@postgres:5432/indexer_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    volumes:
+      - indexer_data:/app/data
+    depends_on:
+      - api
+      - redis
+    restart: unless-stopped
+    networks:
+      - indexer-network
+
+  # ==========================================================================
+  # Celery Beat (Scheduler)
+  # ==========================================================================
+  beat:
+    build:
+      context: .
+      target: production
+    container_name: indexer-beat
+    command: celery -A indexer_api.workers.celery_app beat --loglevel=info
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://indexer:indexer_secret@postgres:5432/indexer_db
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - worker
+    restart: unless-stopped
+    networks:
+      - indexer-network
+
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: indexer-postgres
+    environment:
+      - POSTGRES_USER=indexer
+      - POSTGRES_PASSWORD=indexer_secret
+      - POSTGRES_DB=indexer_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - indexer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indexer -d indexer_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Redis Cache & Message Broker
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: indexer-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - indexer-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Flower (Celery Monitoring) - Optional
+  # ==========================================================================
+  flower:
+    build:
+      context: .
+      target: production
+    container_name: indexer-flower
+    command: celery -A indexer_api.workers.celery_app flower --port=5555
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      - worker
+    restart: unless-stopped
+    networks:
+      - indexer-network
+    profiles:
+      - monitoring
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  indexer_data:
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  indexer-network:
+    driver: bridge

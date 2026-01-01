@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "indexer-api"
+version = "1.0.0"
+description = "Enterprise File Indexing API - Production-grade file indexing as a service"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "IndexerSuite Team" }
+]
+keywords = ["indexer", "file-system", "api", "fastapi", "enterprise"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # Web Framework
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.6",
+
+    # Database
+    "sqlalchemy>=2.0.25",
+    "alembic>=1.13.1",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.19.0",
+
+    # Authentication
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.0,<4.1.0",  # Pin bcrypt to avoid passlib compatibility issues
+
+    # Validation & Serialization
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.1.0",
+
+    # Background Tasks
+    "celery[redis]>=5.3.0",
+    "redis>=5.0.0",
+
+    # Utilities
+    "httpx>=0.26.0",
+    "tenacity>=8.2.0",
+    "structlog>=24.1.0",
+    "python-dotenv>=1.0.0",
+
+    # CLI
+    "typer[all]>=0.9.0",
+    "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+    "ruff>=0.1.14",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+[project.scripts]
+indexer-api = "indexer_api.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/indexersuite/indexer-api"
+Documentation = "https://indexer-api.readthedocs.io"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/indexer_api"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --cov=src/indexer_api --cov-report=term-missing"

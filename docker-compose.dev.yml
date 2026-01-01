@@ -1,0 +1,42 @@
+# IndexerAPI Docker Compose - Development
+# Use: docker-compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # Development API with hot reload
+  api:
+    build:
+      context: .
+      target: builder
+    container_name: indexer-api-dev
+    command: uvicorn indexer_api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=sqlite+aiosqlite:///./data/indexer.db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - LOG_FORMAT=console
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      - redis
+    networks:
+      - indexer-dev
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    container_name: indexer-redis-dev
+    ports:
+      - "6379:6379"
+    networks:
+      - indexer-dev
+
+networks:
+  indexer-dev:
+    driver: bridge
