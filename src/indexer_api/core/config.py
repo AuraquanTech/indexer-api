@@ -108,6 +108,19 @@ class Settings(BaseSettings):
     enable_semantic_analysis: bool = False
     enable_billing: bool = False
 
+    # DAM - Digital Asset Management
+    enable_dam: bool = True
+    dam_thumbnail_size: tuple[int, int] = (200, 200)
+    dam_extract_colors: bool = True
+    dam_max_colors: int = 5
+
+    # Code Discovery
+    enable_code_discovery: bool = True
+    code_max_file_size_kb: int = 500
+    code_languages: list[str] = Field(
+        default_factory=lambda: ["python", "javascript", "typescript", "go", "rust", "java", "c", "cpp"]
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

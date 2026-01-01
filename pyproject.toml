@@ -58,6 +58,16 @@ dependencies = [
     # CLI
     "typer[all]>=0.9.0",
     "rich>=13.7.0",
+
+    # DAM - Digital Asset Management
+    "exifread>=3.0.0",          # Image EXIF metadata
+    "tinytag>=1.10.0",          # Audio metadata
+    "pymupdf>=1.24.0",          # PDF analysis
+
+    # Code Discovery
+    "pygments>=2.17.0",         # Language detection
+    "radon>=6.0.0",             # Python complexity metrics
+    "gitpython>=3.1.0",         # Git repository analysis
 ]
 
 [project.optional-dependencies]

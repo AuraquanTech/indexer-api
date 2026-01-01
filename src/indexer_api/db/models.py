@@ -68,6 +68,18 @@ class JobType(str, Enum):
     FULL_SCAN = "full_scan"
     INCREMENTAL = "incremental"
     QUICK_SCAN = "quick_scan"
+    DAM_ANALYSIS = "dam_analysis"
+    CODE_ANALYSIS = "code_analysis"
+
+
+class AssetType(str, Enum):
+    """Asset types for DAM categorization."""
+    IMAGE = "image"
+    VIDEO = "video"
+    AUDIO = "audio"
+    DOCUMENT = "document"
+    CODE = "code"
+    OTHER = "other"
 
 
 # ============================================================================

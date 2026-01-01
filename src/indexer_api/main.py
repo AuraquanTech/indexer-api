@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from indexer_api.api.routers import auth_router, health_router, indexes_router
+from indexer_api.api.routers import auth_router, code_router, dam_router, health_router, indexes_router
 from indexer_api.core.config import settings
 from indexer_api.core.logging import get_logger, setup_logging
 from indexer_api.db.base import close_db, init_db
@@ -159,6 +159,8 @@ Two authentication methods are supported:
     app.include_router(health_router)
     app.include_router(auth_router, prefix=settings.api_prefix)
     app.include_router(indexes_router, prefix=settings.api_prefix)
+    app.include_router(dam_router, prefix=settings.api_prefix)
+    app.include_router(code_router, prefix=settings.api_prefix)
 
     return app
 
