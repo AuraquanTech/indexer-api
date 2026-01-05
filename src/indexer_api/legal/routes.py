@@ -10,6 +10,7 @@ from .privacy_policy import get_privacy_policy
 from .terms_of_service import get_terms_of_service
 from .refund_policy import get_refund_policy
 from .cookie_policy import get_cookie_policy
+from .data_processing_agreement import get_data_processing_agreement
 
 router = APIRouter(prefix="/legal", tags=["Legal"])
 
@@ -56,6 +57,17 @@ async def cookie_policy():
     and how you can manage your cookie preferences.
     """
     return get_cookie_policy()
+
+
+@router.get("/dpa", response_class=HTMLResponse, summary="Data Processing Agreement")
+async def data_processing_agreement():
+    """
+    Returns the Data Processing Agreement (DPA) for IndexerAPI.
+
+    This document is a GDPR Article 28 compliant agreement for enterprise
+    customers who require a formal data processing agreement.
+    """
+    return get_data_processing_agreement()
 
 
 # JSON versions for API consumers
@@ -113,6 +125,23 @@ async def cookie_policy_json():
     }
 
 
+@router.get("/dpa.json", summary="Data Processing Agreement (JSON)")
+async def dpa_json():
+    """Returns Data Processing Agreement metadata in JSON format."""
+    return {
+        "title": "Data Processing Agreement",
+        "effective_date": "2026-01-05",
+        "last_updated": "2026-01-05",
+        "version": "1.0",
+        "url": "/legal/dpa",
+        "contact": "dpo@ayrto.dev",
+        "gdpr_compliant": True,
+        "sccs_included": True,
+        "breach_notification_hours": 48,
+        "sub_processors": ["Railway", "Stripe", "Resend"]
+    }
+
+
 @router.get("/", summary="Legal Documents Index")
 async def legal_index():
     """Returns a list of all available legal documents."""
@@ -141,6 +170,12 @@ async def legal_index():
                 "description": "Information about cookies and tracking",
                 "html_url": "/legal/cookies",
                 "json_url": "/legal/cookies.json"
+            },
+            {
+                "name": "Data Processing Agreement",
+                "description": "GDPR Article 28 compliant DPA for enterprise customers",
+                "html_url": "/legal/dpa",
+                "json_url": "/legal/dpa.json"
             }
         ],
         "company": "Ayrto Engineering",

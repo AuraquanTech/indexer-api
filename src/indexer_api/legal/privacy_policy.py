@@ -146,16 +146,77 @@ PRIVACY_POLICY = """
             <li><strong>Withdraw Consent:</strong> Withdraw consent at any time for consent-based processing.</li>
         </ul>
 
-        <h3>6.2 Rights Under CCPA (California Residents)</h3>
+        <h3>6.2 Rights Under CCPA/CPRA (California Residents)</h3>
+        <p>Under the California Consumer Privacy Act (CCPA) as amended by the California Privacy Rights Act (CPRA), California residents have the following rights:</p>
         <ul>
-            <li><strong>Know:</strong> Request disclosure of data collected about you.</li>
-            <li><strong>Delete:</strong> Request deletion of your personal information.</li>
-            <li><strong>Opt-Out:</strong> Opt out of sale of personal information (we do not sell data).</li>
-            <li><strong>Non-Discrimination:</strong> We will not discriminate against you for exercising your rights.</li>
+            <li><strong>Right to Know:</strong> Request disclosure of personal information collected, sources, purposes, and third parties with whom we share it.</li>
+            <li><strong>Right to Delete:</strong> Request deletion of your personal information, subject to certain exceptions.</li>
+            <li><strong>Right to Correct:</strong> Request correction of inaccurate personal information we maintain about you.</li>
+            <li><strong>Right to Opt-Out of Sale/Sharing:</strong> Opt out of the sale or sharing of your personal information for cross-context behavioral advertising. <strong>Note: We do not sell or share your data for advertising purposes.</strong></li>
+            <li><strong>Right to Limit Use of Sensitive Personal Information:</strong> Request that we limit the use of your sensitive personal information to what is necessary to perform the services.</li>
+            <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for exercising any of your CCPA/CPRA rights.</li>
         </ul>
 
-        <h3>6.3 Exercising Your Rights</h3>
-        <p>To exercise any of these rights, contact us at <a href="mailto:privacy@ayrto.dev">privacy@ayrto.dev</a> or use the account settings in your dashboard. We will respond within 30 days (or 45 days for complex requests).</p>
+        <h3>6.3 Sensitive Personal Information (CPRA)</h3>
+        <p>We may collect the following categories of sensitive personal information:</p>
+        <ul>
+            <li><strong>Account credentials:</strong> Username, password (stored hashed)</li>
+            <li><strong>Financial information:</strong> Payment method details (via Stripe)</li>
+        </ul>
+        <p>We use sensitive personal information only to provide our services and for the purposes disclosed at collection. You may limit the use and disclosure of your sensitive personal information by contacting us at <a href="mailto:privacy@ayrto.dev">privacy@ayrto.dev</a>.</p>
+
+        <h3>6.4 Global Privacy Control (GPC)</h3>
+        <p>We honor Global Privacy Control (GPC) signals. When we detect a GPC signal from your browser, we will treat it as a valid opt-out request for any sale or sharing of personal information for cross-context behavioral advertising (though we do not engage in such practices).</p>
+
+        <h3>6.5 Automated Decision-Making</h3>
+        <p>We do not use your personal information for automated decision-making that produces legal or similarly significant effects on you. Our systems may use automation for fraud detection and service security, but these do not result in decisions with significant legal effects on consumers.</p>
+
+        <h3>6.6 Categories of Personal Information</h3>
+        <p>In the preceding 12 months, we have collected the following categories of personal information as defined by the CCPA:</p>
+        <table>
+            <tr>
+                <th>Category</th>
+                <th>Examples</th>
+                <th>Collected</th>
+            </tr>
+            <tr>
+                <td>Identifiers</td>
+                <td>Email address, IP address, account ID</td>
+                <td>Yes</td>
+            </tr>
+            <tr>
+                <td>Commercial Information</td>
+                <td>Subscription records, transaction history</td>
+                <td>Yes</td>
+            </tr>
+            <tr>
+                <td>Internet Activity</td>
+                <td>API usage, browsing history on our site</td>
+                <td>Yes</td>
+            </tr>
+            <tr>
+                <td>Geolocation Data</td>
+                <td>IP-based approximate location (country/region)</td>
+                <td>Yes</td>
+            </tr>
+            <tr>
+                <td>Professional Information</td>
+                <td>Organization name, job function (if provided)</td>
+                <td>Yes</td>
+            </tr>
+            <tr>
+                <td>Inferences</td>
+                <td>Usage patterns, service preferences</td>
+                <td>Yes</td>
+            </tr>
+        </table>
+        <p><strong>Retention:</strong> We retain personal information for as long as necessary to fulfill the purposes outlined in this policy, unless a longer retention period is required by law.</p>
+
+        <h3>6.7 California Shine the Light</h3>
+        <p>California Civil Code Section 1798.83 permits California residents to request information regarding the disclosure of personal information to third parties for direct marketing purposes. We do not share personal information with third parties for their direct marketing purposes.</p>
+
+        <h3>6.8 Exercising Your Rights</h3>
+        <p>To exercise any of your privacy rights (GDPR, CCPA/CPRA, or otherwise), contact us at <a href="mailto:privacy@ayrto.dev">privacy@ayrto.dev</a> or use the account settings in your dashboard. We will verify your identity before processing your request. We will respond within 30 days (or 45 days for complex requests, with notice). You may designate an authorized agent to make requests on your behalf.</p>
 
         <h2>7. Data Security</h2>
         <p>We implement industry-standard security measures including:</p>
