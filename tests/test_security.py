@@ -10,9 +10,12 @@ from httpx import AsyncClient
 
 from indexer_api.payments.fraud_detection import (
     FraudDetectionService,
+    RedisFraudDetectionService,
     get_fraud_service,
+    get_redis_fraud_service,
     FraudSignal,
     FraudCheckResult,
+    REDIS_AVAILABLE,
 )
 from indexer_api.core.logging import mask_pii, PII_PATTERNS
 
@@ -306,3 +309,95 @@ class TestHealthEndpoints:
         assert data["security"]["owasp_headers"] is True
         assert data["security"]["fraud_detection"] is True
         assert data["security"]["pii_masking"] is True
+
+
+# ============== Redis Fraud Detection Tests ==============
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not installed")
+class TestRedisFraudDetection:
+    """Tests for Redis-backed fraud detection service.
+
+    These tests require Redis to be running locally.
+    Skipped if Redis is not available or not running.
+    """
+
+    @pytest_asyncio.fixture
+    async def redis_fraud_svc(self):
+        """Create Redis fraud service for tests."""
+        import redis.asyncio as aioredis
+        # Try to connect to Redis
+        try:
+            redis = await aioredis.from_url("redis://localhost:6379/15")  # Use DB 15 for tests
+            await redis.ping()
+            await redis.flushdb()  # Clear test DB
+            await redis.close()
+        except Exception:
+            pytest.skip("Redis not running or not accessible")
+
+        svc = RedisFraudDetectionService(redis_url="redis://localhost:6379/15")
+        yield svc
+        await svc.close()
+
+    async def test_redis_normal_transaction(self, redis_fraud_svc):
+        """Normal transactions via Redis should be approved."""
+        result = await redis_fraud_svc.check_transaction(
+            customer_email="user@gmail.com",
+            amount_cents=2999,
+            ip_address="192.168.1.1"
+        )
+        assert result.recommendation == "approve"
+        assert result.total_risk_score < 0.3
+
+    async def test_redis_velocity_tracking(self, redis_fraud_svc):
+        """Redis should track velocity across multiple transactions."""
+        # Make 4 transactions to trigger velocity check
+        for i in range(4):
+            result = await redis_fraud_svc.check_transaction(
+                customer_email="velocity@example.com",
+                amount_cents=1000,
+                ip_address="10.0.0.1"
+            )
+
+        # 4th should trigger velocity signal
+        assert any(s.signal_type == "velocity_minute" for s in result.signals)
+
+    async def test_redis_micro_transaction(self, redis_fraud_svc):
+        """Micro transactions should be flagged in Redis."""
+        result = await redis_fraud_svc.check_transaction(
+            customer_email="test@example.com",
+            amount_cents=50,  # $0.50
+            ip_address="10.0.0.1"
+        )
+        assert result.is_suspicious
+        assert any(s.signal_type == "micro_transaction" for s in result.signals)
+
+    async def test_redis_disposable_email(self, redis_fraud_svc):
+        """Disposable emails should be flagged in Redis."""
+        result = await redis_fraud_svc.check_transaction(
+            customer_email="test@tempmail.com",
+            amount_cents=5000,
+            ip_address="10.0.0.1"
+        )
+        assert any(s.signal_type == "disposable_email" for s in result.signals)
+
+    async def test_redis_reset_signals(self, redis_fraud_svc):
+        """Resetting signals in Redis should clear tracking."""
+        # Build up velocity
+        for _ in range(3):
+            await redis_fraud_svc.check_transaction(
+                customer_email="reset@example.com",
+                amount_cents=1000,
+                ip_address="10.0.0.1"
+            )
+
+        # Reset
+        await redis_fraud_svc.reset_customer_signals("reset@example.com")
+
+        # Should be clean now
+        result = await redis_fraud_svc.check_transaction(
+            customer_email="reset@example.com",
+            amount_cents=1000,
+            ip_address="10.0.0.1"
+        )
+        assert not any(s.signal_type.startswith("velocity") for s in result.signals)

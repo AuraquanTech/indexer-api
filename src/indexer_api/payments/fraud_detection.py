@@ -9,7 +9,9 @@ Features:
 - Real-time payment pattern analysis
 - Anomaly detection based on velocity checks
 - Risk scoring for transactions
+- Redis-backed storage for scalability (optional)
 """
+import asyncio
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -20,6 +22,14 @@ from uuid import UUID
 from indexer_api.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Optional Redis support
+try:
+    import redis.asyncio as aioredis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    aioredis = None
 
 
 @dataclass
@@ -288,13 +298,290 @@ class FraudDetectionService:
         self._email_transaction_counts.pop(identifier, None)
 
 
-# Singleton instance
+class RedisFraudDetectionService:
+    """
+    Redis-backed fraud detection service for production scalability.
+
+    Advantages over in-memory:
+    - Persists across server restarts
+    - Works with horizontal scaling (multiple server instances)
+    - Atomic operations prevent race conditions
+    - TTL-based automatic cleanup
+    """
+
+    # Risk thresholds (same as base service)
+    THRESHOLD_APPROVE = 0.3
+    THRESHOLD_REVIEW = 0.6
+    THRESHOLD_BLOCK = 0.85
+
+    # Velocity limits
+    MAX_TRANSACTIONS_PER_MINUTE = 3
+    MAX_TRANSACTIONS_PER_HOUR = 10
+    MAX_AMOUNT_PER_HOUR = 100000  # cents ($1000)
+
+    # Redis key prefixes
+    KEY_PREFIX = "fraud:"
+    VELOCITY_KEY = "velocity:"
+    AMOUNT_KEY = "amounts:"
+
+    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+        """Initialize with Redis connection URL."""
+        if not REDIS_AVAILABLE:
+            raise RuntimeError("Redis not available. Install with: pip install redis")
+        self.redis_url = redis_url
+        self._redis: Optional[aioredis.Redis] = None
+
+    async def _get_redis(self) -> aioredis.Redis:
+        """Get or create Redis connection."""
+        if self._redis is None:
+            self._redis = await aioredis.from_url(
+                self.redis_url,
+                encoding="utf-8",
+                decode_responses=True
+            )
+        return self._redis
+
+    async def check_transaction(
+        self,
+        customer_email: Optional[str],
+        amount_cents: int,
+        ip_address: Optional[str] = None,
+        metadata: Optional[Dict] = None
+    ) -> FraudCheckResult:
+        """
+        Check a transaction for fraud signals (async Redis version).
+        """
+        signals: List[FraudSignal] = []
+        identifier = customer_email or ip_address or "unknown"
+        redis = await self._get_redis()
+
+        # Check 1: Velocity - transactions per minute
+        velocity_signal = await self._check_velocity(redis, identifier)
+        if velocity_signal:
+            signals.append(velocity_signal)
+
+        # Check 2: Amount anomaly
+        amount_signal = self._check_amount_anomaly(identifier, amount_cents)
+        if amount_signal:
+            signals.append(amount_signal)
+
+        # Check 3: Hourly spending limit
+        spending_signal = await self._check_hourly_spending(redis, identifier, amount_cents)
+        if spending_signal:
+            signals.append(spending_signal)
+
+        # Check 4: Email pattern
+        if customer_email:
+            email_signal = self._check_email_pattern(customer_email)
+            if email_signal:
+                signals.append(email_signal)
+
+        # Check 5: Round amount check
+        if amount_cents > 0 and amount_cents % 10000 == 0:
+            if amount_cents >= 50000:
+                signals.append(FraudSignal(
+                    signal_type="round_amount",
+                    description="Large round amount transaction",
+                    risk_score=0.2
+                ))
+
+        # Calculate total risk score
+        total_risk = min(sum(s.risk_score for s in signals), 1.0)
+
+        # Determine recommendation
+        if total_risk >= self.THRESHOLD_BLOCK:
+            recommendation = "block"
+        elif total_risk >= self.THRESHOLD_REVIEW:
+            recommendation = "review"
+        else:
+            recommendation = "approve"
+
+        # Record transaction for future velocity checks
+        await self._record_transaction(redis, identifier, amount_cents)
+
+        result = FraudCheckResult(
+            is_suspicious=total_risk >= self.THRESHOLD_REVIEW,
+            total_risk_score=total_risk,
+            signals=signals,
+            recommendation=recommendation
+        )
+
+        if result.is_suspicious:
+            logger.warning(
+                "suspicious_transaction_detected",
+                risk_score=result.total_risk_score,
+                recommendation=result.recommendation,
+                signal_count=len(signals),
+            )
+
+        return result
+
+    async def _check_velocity(self, redis: aioredis.Redis, identifier: str) -> Optional[FraudSignal]:
+        """Check transaction velocity using Redis sorted sets."""
+        now = time.time()
+        key = f"{self.KEY_PREFIX}{self.VELOCITY_KEY}{identifier}"
+
+        # Remove entries older than 1 hour
+        await redis.zremrangebyscore(key, 0, now - 3600)
+
+        # Count transactions in last minute
+        minute_count = await redis.zcount(key, now - 60, now)
+        if minute_count >= self.MAX_TRANSACTIONS_PER_MINUTE:
+            return FraudSignal(
+                signal_type="velocity_minute",
+                description=f"Too many transactions in last minute ({minute_count})",
+                risk_score=0.5,
+                metadata={"count": minute_count, "window": "minute"}
+            )
+
+        # Count transactions in last hour
+        hour_count = await redis.zcount(key, now - 3600, now)
+        if hour_count >= self.MAX_TRANSACTIONS_PER_HOUR:
+            return FraudSignal(
+                signal_type="velocity_hour",
+                description=f"Too many transactions in last hour ({hour_count})",
+                risk_score=0.3,
+                metadata={"count": hour_count, "window": "hour"}
+            )
+
+        return None
+
+    def _check_amount_anomaly(self, identifier: str, amount_cents: int) -> Optional[FraudSignal]:
+        """Check for unusual transaction amounts (sync - no Redis needed)."""
+        if 0 < amount_cents < 100:
+            return FraudSignal(
+                signal_type="micro_transaction",
+                description="Unusually small transaction (possible card testing)",
+                risk_score=0.6,
+                metadata={"amount_cents": amount_cents}
+            )
+
+        if amount_cents > 1000000:
+            return FraudSignal(
+                signal_type="large_transaction",
+                description="Unusually large transaction",
+                risk_score=0.3,
+                metadata={"amount_cents": amount_cents}
+            )
+
+        return None
+
+    async def _check_hourly_spending(
+        self,
+        redis: aioredis.Redis,
+        identifier: str,
+        amount_cents: int
+    ) -> Optional[FraudSignal]:
+        """Check if hourly spending limit is exceeded."""
+        key = f"{self.KEY_PREFIX}{self.AMOUNT_KEY}{identifier}"
+
+        # Get total spending in last hour from Redis hash
+        now = time.time()
+        hour_key = f"{key}:{int(now // 3600)}"  # Key per hour
+
+        total_str = await redis.get(hour_key)
+        total_recent = int(total_str) if total_str else 0
+
+        if total_recent + amount_cents > self.MAX_AMOUNT_PER_HOUR:
+            return FraudSignal(
+                signal_type="spending_limit",
+                description="Hourly spending limit exceeded",
+                risk_score=0.4,
+                metadata={
+                    "recent_total": total_recent,
+                    "new_amount": amount_cents,
+                    "limit": self.MAX_AMOUNT_PER_HOUR
+                }
+            )
+
+        return None
+
+    def _check_email_pattern(self, email: str) -> Optional[FraudSignal]:
+        """Check for suspicious email patterns (sync - no Redis needed)."""
+        disposable_domains = {
+            "tempmail.com", "throwaway.com", "guerrillamail.com",
+            "10minutemail.com", "mailinator.com", "temp-mail.org",
+            "fakeinbox.com", "trashmail.com"
+        }
+
+        domain = email.split("@")[-1].lower() if "@" in email else ""
+
+        if domain in disposable_domains:
+            return FraudSignal(
+                signal_type="disposable_email",
+                description="Disposable email domain detected",
+                risk_score=0.5,
+                metadata={"domain": domain}
+            )
+
+        local_part = email.split("@")[0] if "@" in email else email
+        digit_ratio = sum(c.isdigit() for c in local_part) / len(local_part) if local_part else 0
+
+        if digit_ratio > 0.5:
+            return FraudSignal(
+                signal_type="suspicious_email_pattern",
+                description="Email appears auto-generated",
+                risk_score=0.2,
+                metadata={"digit_ratio": digit_ratio}
+            )
+
+        return None
+
+    async def _record_transaction(
+        self,
+        redis: aioredis.Redis,
+        identifier: str,
+        amount_cents: int
+    ) -> None:
+        """Record a transaction in Redis with TTL."""
+        now = time.time()
+
+        # Record timestamp in sorted set (for velocity tracking)
+        velocity_key = f"{self.KEY_PREFIX}{self.VELOCITY_KEY}{identifier}"
+        await redis.zadd(velocity_key, {str(now): now})
+        await redis.expire(velocity_key, 86400)  # 24 hour TTL
+
+        # Record amount for spending tracking
+        hour_key = f"{self.KEY_PREFIX}{self.AMOUNT_KEY}{identifier}:{int(now // 3600)}"
+        await redis.incrby(hour_key, amount_cents)
+        await redis.expire(hour_key, 7200)  # 2 hour TTL (covers hour boundary)
+
+    async def reset_customer_signals(self, identifier: str) -> None:
+        """Reset fraud signals for a customer."""
+        redis = await self._get_redis()
+        velocity_key = f"{self.KEY_PREFIX}{self.VELOCITY_KEY}{identifier}"
+
+        # Delete velocity tracking
+        await redis.delete(velocity_key)
+
+        # Delete current hour's spending
+        now = time.time()
+        hour_key = f"{self.KEY_PREFIX}{self.AMOUNT_KEY}{identifier}:{int(now // 3600)}"
+        await redis.delete(hour_key)
+
+    async def close(self) -> None:
+        """Close Redis connection."""
+        if self._redis:
+            await self._redis.close()
+            self._redis = None
+
+
+# Singleton instances
 _fraud_service: Optional[FraudDetectionService] = None
+_redis_fraud_service: Optional[RedisFraudDetectionService] = None
 
 
 def get_fraud_service() -> FraudDetectionService:
-    """Get or create fraud detection service singleton."""
+    """Get or create in-memory fraud detection service singleton."""
     global _fraud_service
     if _fraud_service is None:
         _fraud_service = FraudDetectionService()
     return _fraud_service
+
+
+def get_redis_fraud_service(redis_url: str = "redis://localhost:6379/0") -> RedisFraudDetectionService:
+    """Get or create Redis-backed fraud detection service singleton."""
+    global _redis_fraud_service
+    if _redis_fraud_service is None:
+        _redis_fraud_service = RedisFraudDetectionService(redis_url)
+    return _redis_fraud_service
