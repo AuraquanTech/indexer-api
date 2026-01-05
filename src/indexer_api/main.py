@@ -23,6 +23,52 @@ from indexer_api.db.base import close_db, init_db
 logger = get_logger(__name__)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    OWASP Security Headers Middleware.
+
+    Implements security headers based on:
+    - OWASP Secure Headers Project
+    - Knowledge base security patterns (owasp_top_10.json)
+
+    Headers added:
+    - X-Content-Type-Options: Prevents MIME-type sniffing
+    - X-Frame-Options: Prevents clickjacking
+    - X-XSS-Protection: Legacy XSS protection
+    - Strict-Transport-Security: Enforces HTTPS
+    - Content-Security-Policy: Controls resource loading
+    - Referrer-Policy: Controls referrer information
+    - Permissions-Policy: Controls browser features
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # OWASP recommended security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+        # Content Security Policy for API responses
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "base-uri 'self'"
+        )
+
+        # Remove server identification headers (if present)
+        if "Server" in response.headers:
+            del response.headers["Server"]
+        if "X-Powered-By" in response.headers:
+            del response.headers["X-Powered-By"]
+
+        return response
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple in-memory rate limiting middleware."""
 
@@ -128,6 +174,9 @@ Two authentication methods are supported:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
+
+    # Security headers middleware (OWASP recommendations)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Rate limiting middleware (must be added first to process last)
     app.add_middleware(

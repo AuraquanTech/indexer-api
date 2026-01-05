@@ -15,6 +15,7 @@ from .models import (
 from .stripe_service import get_stripe_service, StripeService
 from .license_service import get_license_service, LicenseService
 from .email_service import get_email_service, EmailService
+from .fraud_detection import get_fraud_service, FraudDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -139,13 +140,21 @@ async def get_product(product_id: UUID):
 
 @payment_router.post("/checkout/{product_id}", response_model=CheckoutSessionResponse)
 async def create_checkout(
+    request: Request,
     product_id: UUID,
     customer_email: Optional[str] = None,
     success_url: Optional[str] = None,
     cancel_url: Optional[str] = None
 ):
-    """Create a checkout session for a product"""
+    """
+    Create a checkout session for a product with fraud detection.
+
+    Security features:
+    - Fraud detection based on velocity and patterns
+    - Risk scoring and automated blocking
+    """
     stripe_svc = get_stripe_service()
+    fraud_svc = get_fraud_service()
 
     if not stripe_svc.is_configured:
         raise HTTPException(status_code=503, detail="Payment system not configured")
@@ -158,7 +167,34 @@ async def create_checkout(
     if not product.stripe_price_id:
         raise HTTPException(status_code=400, detail="Product not set up for payments")
 
-    # Create order record
+    # Fraud detection check
+    client_ip = request.client.host if request.client else None
+    fraud_result = fraud_svc.check_transaction(
+        customer_email=customer_email,
+        amount_cents=product.price_cents,
+        ip_address=client_ip
+    )
+
+    if fraud_result.recommendation == "block":
+        logger.warning(
+            "checkout_blocked_fraud",
+            risk_score=fraud_result.total_risk_score,
+            signal_count=len(fraud_result.signals)
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Transaction cannot be processed at this time"
+        )
+
+    if fraud_result.recommendation == "review":
+        logger.info(
+            "checkout_flagged_review",
+            risk_score=fraud_result.total_risk_score,
+            signals=[s.signal_type for s in fraud_result.signals]
+        )
+        # Continue but flag for manual review
+
+    # Create order record with fraud risk score
     order_id = uuid4()
     _orders[str(order_id)] = {
         "id": str(order_id),
@@ -166,7 +202,10 @@ async def create_checkout(
         "customer_email": customer_email,
         "status": "pending",
         "amount_cents": product.price_cents,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.utcnow().isoformat(),
+        "fraud_risk_score": fraud_result.total_risk_score,
+        "fraud_signals": [s.signal_type for s in fraud_result.signals],
+        "needs_review": fraud_result.recommendation == "review"
     }
 
     try:
@@ -213,7 +252,14 @@ async def get_checkout_status(session_id: str):
 
 @payment_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
-    """Handle Stripe webhook events"""
+    """
+    Handle Stripe webhook events with enhanced security.
+
+    Security features:
+    - HMAC-SHA256 signature validation
+    - Timestamp replay attack prevention (5-minute window)
+    - Structured security logging
+    """
     stripe_svc = get_stripe_service()
     license_svc = get_license_service()
     email_svc = get_email_service()
@@ -221,10 +267,27 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
+    if not sig_header:
+        logger.warning("webhook_missing_signature", path=request.url.path)
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+
     try:
-        event = stripe_svc.verify_webhook_signature(payload, sig_header)
+        event, is_recent = stripe_svc.verify_webhook_signature(payload, sig_header)
+
+        if not is_recent:
+            # Log but still process - Stripe already validated the signature
+            logger.info(
+                "webhook_timestamp_near_limit",
+                event_id=event.get("id"),
+                event_type=event.get("type")
+            )
+
     except Exception as e:
-        logger.error(f"Webhook signature verification failed: {e}")
+        logger.error(
+            "webhook_signature_verification_failed",
+            error=str(e),
+            client_ip=request.client.host if request.client else None
+        )
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event["type"]
