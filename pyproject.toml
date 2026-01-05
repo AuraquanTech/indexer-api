@@ -68,6 +68,10 @@ dependencies = [
     "pygments>=2.17.0",         # Language detection
     "radon>=6.0.0",             # Python complexity metrics
     "gitpython>=3.1.0",         # Git repository analysis
+
+    # Payment & Email
+    "stripe>=7.0.0",            # Stripe payment processing
+    "resend>=0.7.0",            # Email delivery
 ]
 
 [project.optional-dependencies]
@@ -83,6 +87,7 @@ dev = [
 
 [project.scripts]
 indexer-api = "indexer_api.cli:app"
+pc = "indexer_api.cli.catalog:main"
 
 [project.urls]
 Homepage = "https://github.com/indexersuite/indexer-api"
