@@ -311,6 +311,57 @@ class TestHealthEndpoints:
         assert data["security"]["pii_masking"] is True
 
 
+@pytest.mark.asyncio
+class TestMonitoringEndpoints:
+    """Tests for monitoring and alerting endpoints."""
+
+    async def test_metrics_endpoint(self, client: AsyncClient):
+        """Metrics endpoint should return system metrics."""
+        response = await client.get("/metrics")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check required fields
+        assert "timestamp" in data
+        assert "environment" in data
+        assert "uptime_seconds" in data
+        assert "uptime_human" in data
+        assert "total_requests" in data
+        assert "total_errors" in data
+        assert "error_rate" in data
+        assert "fraud_checks" in data
+
+        # Fraud checks structure
+        assert "total" in data["fraud_checks"]
+        assert "flagged" in data["fraud_checks"]
+        assert "blocked" in data["fraud_checks"]
+
+    async def test_alerts_endpoint(self, client: AsyncClient):
+        """Alerts endpoint should return alert status."""
+        response = await client.get("/alerts")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check required fields
+        assert "timestamp" in data
+        assert "status" in data
+        assert data["status"] in ["ok", "warning", "critical"]
+        assert "alert_count" in data
+        assert "alerts" in data
+        assert isinstance(data["alerts"], list)
+
+    async def test_root_includes_new_endpoints(self, client: AsyncClient):
+        """Root endpoint should list all available endpoints."""
+        response = await client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "metrics" in data
+        assert "alerts" in data
+        assert data["metrics"] == "/metrics"
+        assert data["alerts"] == "/alerts"
+
+
 # ============== Redis Fraud Detection Tests ==============
 
 @pytest.mark.asyncio
