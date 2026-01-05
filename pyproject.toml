@@ -72,6 +72,10 @@ dependencies = [
     # Payment & Email
     "stripe>=7.0.0",            # Stripe payment processing
     "resend>=0.7.0",            # Email delivery
+
+    # Catalog features
+    "watchdog>=3.0.0",          # File system watching
+    "numpy>=1.26.0",            # Numeric operations for embeddings
 ]
 
 [project.optional-dependencies]
