@@ -12,6 +12,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from indexer_api.api.routers import auth_router, code_router, dam_router, health_router, indexes_router
+from indexer_api.catalog.router import router as catalog_router
+from indexer_api.payments.routes import payment_router
+from indexer_api.catalog.runtime import start_catalog_runtime, stop_catalog_runtime
 from indexer_api.core.config import settings
 from indexer_api.core.logging import get_logger, setup_logging
 from indexer_api.db.base import close_db, init_db
@@ -73,11 +76,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     await init_db()
+
+    # Start catalog runtime (watcher + job worker)
+    await start_catalog_runtime()
     logger.info("database_initialized")
 
     yield
 
     # Shutdown
+    await stop_catalog_runtime()
     await close_db()
     logger.info("application_shutdown")
 
@@ -161,6 +168,8 @@ Two authentication methods are supported:
     app.include_router(indexes_router, prefix=settings.api_prefix)
     app.include_router(dam_router, prefix=settings.api_prefix)
     app.include_router(code_router, prefix=settings.api_prefix)
+    app.include_router(catalog_router, prefix=settings.api_prefix)
+    app.include_router(payment_router, prefix=settings.api_prefix)
 
     return app
 
