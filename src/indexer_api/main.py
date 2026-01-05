@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from indexer_api.api.routers import auth_router, code_router, dam_router, health_router, indexes_router
 from indexer_api.catalog.router import router as catalog_router
 from indexer_api.payments.routes import payment_router
+from indexer_api.legal.routes import router as legal_router
 from indexer_api.catalog.runtime import start_catalog_runtime, stop_catalog_runtime
 from indexer_api.core.config import settings
 from indexer_api.core.logging import get_logger, setup_logging
@@ -170,6 +171,7 @@ Two authentication methods are supported:
     app.include_router(code_router, prefix=settings.api_prefix)
     app.include_router(catalog_router, prefix=settings.api_prefix)
     app.include_router(payment_router, prefix=settings.api_prefix)
+    app.include_router(legal_router)  # No prefix - served at /legal/*
 
     return app
 

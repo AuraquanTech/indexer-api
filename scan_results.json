@@ -1,0 +1,108 @@
+{
+  "secrets_found": 9,
+  "files_scanned": 0,
+  "directories_scanned": 0,
+  "errors": [],
+  "scan_duration_seconds": 0.0051555633544921875,
+  "secrets": [
+    {
+      "secret_type": "anthropic_api_key",
+      "masked_value": "sk-a****yzgw",
+      "source": "environment_variable",
+      "location": "$ANTHROPIC_API_KEY",
+      "line_number": 1,
+      "confidence": 0.98,
+      "pattern_name": "Anthropic API Key",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": false
+    },
+    {
+      "secret_type": "generic_api_key",
+      "masked_value": "sk-a****gwAA",
+      "source": "environment_variable",
+      "location": "$ANTHROPIC_API_KEY",
+      "line_number": null,
+      "confidence": 0.6,
+      "pattern_name": "Env var with secret name (entropy: 5.46)",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": true
+    },
+    {
+      "secret_type": "aws_access_key_id",
+      "masked_value": "AKIA****PUSM",
+      "source": "environment_variable",
+      "location": "$AWS_ACCESS_KEY_ID",
+      "line_number": 1,
+      "confidence": 0.95,
+      "pattern_name": "AWS Access Key ID",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": false
+    },
+    {
+      "secret_type": "generic_api_key",
+      "masked_value": "rk7A****Alr2",
+      "source": "environment_variable",
+      "location": "$AWS_SECRET_ACCESS_KEY",
+      "line_number": null,
+      "confidence": 0.75,
+      "pattern_name": "Env var with secret name (entropy: 4.83)",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": true
+    },
+    {
+      "secret_type": "generic_api_key",
+      "masked_value": "BSA2****h7Vn",
+      "source": "environment_variable",
+      "location": "$BRAVE_API_KEY",
+      "line_number": null,
+      "confidence": 0.6,
+      "pattern_name": "Env var with secret name (entropy: 4.83)",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": true
+    },
+    {
+      "secret_type": "github_pat",
+      "masked_value": "ghp_****9mDG",
+      "source": "environment_variable",
+      "location": "$GITHUB_TOKEN",
+      "line_number": 1,
+      "confidence": 0.98,
+      "pattern_name": "GitHub Personal Access Token",
+      "detected_at": "2026-01-04T19:05:24.333257",
+      "is_entropy_based": false
+    },
+    {
+      "secret_type": "generic_api_key",
+      "masked_value": "nfp_****764e",
+      "source": "environment_variable",
+      "location": "$NETLIFY_TOKEN",
+      "line_number": null,
+      "confidence": 0.75,
+      "pattern_name": "Env var with secret name (entropy: 4.82)",
+      "detected_at": "2026-01-04T19:05:24.333772",
+      "is_entropy_based": true
+    },
+    {
+      "secret_type": "generic_api_key",
+      "masked_value": "LS0t****Cg==",
+      "source": "cloud_config",
+      "location": "C:\\Users\\ayrto\\.kube\\config",
+      "line_number": 18,
+      "confidence": 0.5,
+      "pattern_name": "High entropy (5.63)",
+      "detected_at": "2026-01-04T19:05:24.336325",
+      "is_entropy_based": true
+    },
+    {
+      "secret_type": "private_key",
+      "masked_value": "----****----",
+      "source": "cloud_config",
+      "location": "C:\\Users\\ayrto\\.ssh\\id_rsa",
+      "line_number": 1,
+      "confidence": 0.99,
+      "pattern_name": "RSA Private Key",
+      "detected_at": "2026-01-04T19:05:24.337334",
+      "is_entropy_based": false
+    }
+  ]
+}

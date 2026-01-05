@@ -1,0 +1,66 @@
+{
+  "benchmark_info": {
+    "version": "1.0.0",
+    "timestamp": "2026-01-01T09:11:17Z",
+    "drive": "E:",
+    "drive_label": "External 3.7TB"
+  },
+  "system_info": {
+    "platform": "Windows 10/11",
+    "python_version": "3.12",
+    "cpu_cores_logical": 24,
+    "ram_total_gb": 63.43
+  },
+  "index_info": {
+    "index_id": "1edfddba-3ba4-4758-b02b-d3c85acaf294",
+    "root_path": "E:/",
+    "compute_hashes": false
+  },
+  "results": {
+    "total_files": 1893442,
+    "total_directories": 1155613,
+    "total_size_bytes": 2464363517077,
+    "total_size_human": "2.2 TB",
+    "indexing_duration_estimate_minutes": 40.5,
+    "files_per_second_estimate": 779,
+    "avg_file_size_bytes": 1301525.75,
+    "avg_cpu_percent": 25.3,
+    "peak_cpu_percent": 52.0,
+    "avg_memory_mb": 53.4,
+    "peak_memory_mb": 53.6
+  },
+  "extensions_breakdown": {
+    ".py": 293736,
+    ".h": 215441,
+    ".js": 90450,
+    ".ts": 76737,
+    ".jpg": 69772,
+    ".html": 58275,
+    ".map": 46055,
+    ".md": 36478,
+    ".pyi": 29797,
+    ".json": 28992,
+    ".png": 28673,
+    ".txt": 25782,
+    ".c": 23976,
+    ".rs": 20561,
+    ".dll": 13808,
+    ".tsx": 12629,
+    ".go": 11771,
+    ".pdf": 11723,
+    ".dat": 10975,
+    ".xml": 10842
+  },
+  "size_distribution": {
+    "tiny_0_1kb": 680173,
+    "small_1_100kb": 1048584,
+    "medium_100kb_1mb": 84799,
+    "large_1mb_100mb": 78362,
+    "huge_100mb_plus": 1524
+  },
+  "largest_file": {
+    "path": "E:\\Gab\\Screenshot_20191202-152351_Grindr.zip",
+    "size_bytes": 491167978952,
+    "size_human": "457.4 GB"
+  }
+}
